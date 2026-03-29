@@ -110,7 +110,7 @@ export default function OrganizerDashboard() {
   useEffect(() => {
     const user = getUser<User>();
     if (!user) { router.replace("/login"); return; }
-    if (user.role !== "ORGANIZER" && user.role !== "CLUB_OWNER") {
+    if (!["ORGANIZER","CLUB_OWNER","ADMIN","SUPER_ADMIN"].includes(user.role)) {
       router.replace("/");
       return;
     }

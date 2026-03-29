@@ -1,13 +1,32 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
-import { eventsApi, ordersApi, promosApi, unwrap } from "@/lib/api";
+import { eventsApi, ordersApi, promosApi, walletApi, unwrap } from "@/lib/api";
 import api from "@/lib/api";
 import type { Event, Order } from "@/types";
 import { fmtCurrency } from "@/lib/utils";
 import toast from "react-hot-toast";
 
-type PayMethod = "MPESA_STK" | "MPESA_PAYBILL" | "TEST";
+type PayMethod = "MPESA_STK" | "MPESA_PAYBILL" | "WALLET" | "CARD" | "TEST";
+
+declare global {
+  interface Window {
+    PaystackPop: {
+      setup: (opts: {
+        key: string;
+        email: string;
+        amount: number;
+        currency: string;
+        ref: string;
+        metadata?: Record<string, unknown>;
+        onClose: () => void;
+        callback: (res: { reference: string }) => void;
+      }) => { openIframe: () => void };
+    };
+  }
+}
+
+const PAYSTACK_PUBLIC_KEY = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || "pk_test_xxxxxxxxxxxxxxxxxxxxxx";
 
 export default function CheckoutPage() {
   const { eventId } = useParams<{ eventId: string }>();
@@ -25,6 +44,8 @@ export default function CheckoutPage() {
   const [discount, setDiscount] = useState(0);
   const [loyaltyPoints, setLoyaltyPoints] = useState(0);
   const [useLoyalty, setUseLoyalty] = useState(false);
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [userEmail, setUserEmail] = useState("");
 
   // Parse tier selections from query: "tierId:qty,tierId:qty"
   const selections = (sp.get("tiers") || "").split(",").filter(Boolean).map((s) => {
@@ -36,9 +57,23 @@ export default function CheckoutPage() {
     eventsApi.get(eventId)
       .then((r) => setEvent(unwrap<Event>(r)))
       .finally(() => setLoading(false));
-    api.get("/loyalty/balance")
+    api.get("/loyalty/me")
       .then((r) => setLoyaltyPoints(unwrap<{ points: number }>(r)?.points ?? 0))
       .catch(() => {});
+    walletApi.balance()
+      .then((r) => setWalletBalance(unwrap<{ balance: number }>(r)?.balance ?? 0))
+      .catch(() => {});
+    api.get("/users/me")
+      .then((r) => setUserEmail(unwrap<{ email: string }>(r)?.email ?? ""))
+      .catch(() => {});
+    // Load Paystack inline script
+    if (!document.getElementById("paystack-inline")) {
+      const s = document.createElement("script");
+      s.id = "paystack-inline";
+      s.src = "https://js.paystack.co/v1/inline.js";
+      s.async = true;
+      document.head.appendChild(s);
+    }
   }, [eventId]);
 
   const subtotal = selections.reduce((sum, { tierId, qty }) => {
@@ -65,6 +100,10 @@ export default function CheckoutPage() {
 
   async function placeOrder() {
     if (method === "MPESA_STK" && !phone) { toast.error("Enter your M-Pesa phone number"); return; }
+    if (method === "WALLET" && walletBalance < finalTotal) {
+      toast.error(`Insufficient wallet balance. You have ${fmtCurrency(walletBalance)}.`);
+      return;
+    }
     setPlacing(true);
     try {
       const items = selections.map(({ tierId, qty }) => ({ tierId, quantity: qty }));
@@ -73,14 +112,50 @@ export default function CheckoutPage() {
         items,
         promoCode: promoApplied ? promoCode : undefined,
         ...(loyaltyPointsToRedeem >= 100 ? { loyaltyPointsToRedeem } : {}),
+        ...(method === "WALLET" ? { paymentMethod: "WALLET" } : {}),
       });
       const newOrder = unwrap<Order>(res);
       setOrder(newOrder);
+
+      if (method === "WALLET") {
+        toast.success("Paid from wallet! Tickets issued 🎉");
+        router.push("/tickets");
+        return;
+      }
 
       if (method === "TEST") {
         await ordersApi.testPay(newOrder.id);
         toast.success("Test payment confirmed! Tickets issued 🎉");
         router.push("/tickets");
+        return;
+      }
+
+      if (method === "CARD") {
+        setPlacing(false);
+        if (!window.PaystackPop) {
+          toast.error("Card payment not ready — please try again in a moment");
+          return;
+        }
+        const ref = `PP-${newOrder.id.slice(-8).toUpperCase()}-${Date.now()}`;
+        const handler = window.PaystackPop.setup({
+          key: PAYSTACK_PUBLIC_KEY,
+          email: userEmail || "guest@partypass.com",
+          amount: Math.round(finalTotal * 100), // kobo
+          currency: "KES",
+          ref,
+          metadata: { orderId: newOrder.id },
+          onClose: () => { toast("Card payment cancelled"); },
+          callback: async (response) => {
+            try {
+              await ordersApi.payCard(newOrder.id, response.reference);
+              toast.success("Card payment confirmed! Tickets issued 🎉");
+              router.push("/tickets");
+            } catch {
+              toast.error("Payment verification failed — contact support with ref: " + response.reference);
+            }
+          },
+        });
+        handler.openIframe();
         return;
       }
 
@@ -187,14 +262,25 @@ export default function CheckoutPage() {
         {([
           { v: "MPESA_STK", label: "M-Pesa STK Push", sub: "We send a prompt to your phone" },
           { v: "MPESA_PAYBILL", label: "M-Pesa Paybill", sub: "Pay to our paybill number manually" },
+          {
+            v: "WALLET",
+            label: "PartyPass Wallet",
+            sub: walletBalance >= finalTotal
+              ? `Balance: ${fmtCurrency(walletBalance)} — instant, no PIN needed`
+              : `Balance: ${fmtCurrency(walletBalance)} — insufficient for this order`,
+          },
+          { v: "CARD", label: "💳 Card / Bank", sub: "Visa, Mastercard, or bank transfer via Paystack" },
           { v: "TEST", label: "🧪 Test Payment", sub: "Sandbox only — instantly issues tickets" },
-        ] as { v: PayMethod; label: string; sub: string }[]).map((o) => (
-          <div key={o.v} onClick={() => setMethod(o.v)}
-            className={`p-3 rounded-xl border cursor-pointer mb-2 transition-all ${method === o.v ? "border-[var(--primary)] bg-[#fde8e7]" : "border-[var(--border)]"}`}>
-            <p className={`font-semibold text-sm ${method === o.v ? "text-[var(--primary)]" : ""}`}>{o.label}</p>
-            <p className="text-xs text-[var(--muted)]">{o.sub}</p>
-          </div>
-        ))}
+        ] as { v: PayMethod; label: string; sub: string }[]).map((o) => {
+          const disabled = o.v === "WALLET" && walletBalance < finalTotal;
+          return (
+            <div key={o.v} onClick={() => !disabled && setMethod(o.v)}
+              className={`p-3 rounded-xl border mb-2 transition-all ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"} ${method === o.v ? "border-[var(--primary)] bg-[#fde8e7]" : "border-[var(--border)]"}`}>
+              <p className={`font-semibold text-sm ${method === o.v ? "text-[var(--primary)]" : ""}`}>{o.label}</p>
+              <p className="text-xs text-[var(--muted)]">{o.sub}</p>
+            </div>
+          );
+        })}
         {method === "MPESA_STK" && (
           <input className="input-base mt-2" type="tel" placeholder="M-Pesa phone (e.g. 0712345678)" value={phone} onChange={(e) => setPhone(e.target.value)} />
         )}

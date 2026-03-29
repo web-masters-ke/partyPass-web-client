@@ -246,7 +246,7 @@ export default function LandingPage() {
         cta={{ href: "/register", label: "Start selling tickets" }} />
 
       {/* ── 10. ORGANIZER: GATES ────────────────────────────────────────── */}
-      <FS img="https://images.unsplash.com/photo-1525170460163-3d3e7c46d999?w=1400&auto=format&fit=crop&q=90"
+      <FS img="https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1400&auto=format&fit=crop&q=90"
         side="right" label="For Organisers — Gates & Team"
         heading={<>Zero queues.<br /><span style={{ color: "var(--primary)" }}>Zero fakes.</span></>}
         body="Add gate staff, assign them to specific gates, and watch headcounts update live from your organiser dashboard in real time."
@@ -258,7 +258,7 @@ export default function LandingPage() {
         ]} />
 
       {/* ── 11. ORGANIZER: EARNINGS ─────────────────────────────────────── */}
-      <FS img="https://images.unsplash.com/photo-1563289588-5b5892bec012?w=1400&auto=format&fit=crop&q=90"
+      <FS img="https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=1400&auto=format&fit=crop&q=90"
         side="left" label="For Organisers — Earnings"
         heading={<>Your money.<br />Same day.</>}
         body="Track every ticket sale live. Request a payout to M-Pesa after your event ends — funds clear the same day, no bank account required."

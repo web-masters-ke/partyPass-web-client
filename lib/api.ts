@@ -55,6 +55,7 @@ export const ordersApi = {
   initiatePaybill: (orderId: string) => api.get(`/orders/${orderId}/pay/mpesa-paybill`),
   checkStatus: (orderId: string) => api.get(`/orders/${orderId}`),
   testPay: (orderId: string) => api.post(`/orders/${orderId}/pay/test`),
+  payCard: (orderId: string, reference: string) => api.post(`/orders/${orderId}/pay/card`, { reference }),
 };
 
 export const loyaltyApi = {
@@ -122,8 +123,8 @@ export const membershipApi = {
 };
 
 export const walletApi = {
-  balance: () => api.get("/wallet"),
-  transactions: (params?: Record<string, unknown>) => api.get("/wallet/transactions", { params }),
+  balance: () => api.get("/wallet/me"),
+  transactions: (params?: Record<string, unknown>) => api.get("/wallet/me/transactions", { params }),
   topup: (phone: string, amount: number, extra?: Record<string, unknown>) =>
     api.post("/wallet/topup", { phone, amount, ...extra }),
 };
@@ -144,6 +145,14 @@ export const groupBookingsApi = {
   mine: () => api.get("/group-bookings/my"),
   getByToken: (shareToken: string) => api.get(`/group-bookings/join/${shareToken}`),
   join: (shareToken: string) => api.post(`/group-bookings/join/${shareToken}`),
+};
+
+export const mediaApi = {
+  upload: (file: File, folder = 'events') => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return api.post(`/media/upload?folder=${folder}`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+  },
 };
 
 export const pdfApi = {

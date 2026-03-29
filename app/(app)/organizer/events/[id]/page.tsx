@@ -206,6 +206,8 @@ function AddStaffModal({
   onClose: () => void;
   onAdded: () => void;
 }) {
+  const [tab, setTab] = useState<"find" | "new">("find");
+  // Find tab
   const [search, setSearch] = useState("");
   const [searching, setSearching] = useState(false);
   const [found, setFound] = useState<StaffUser | null>(null);
@@ -214,154 +216,248 @@ function AddStaffModal({
   const [gateId, setGateId] = useState("");
   const [gates, setGates] = useState<Gate[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  // New staff tab
+  const [newForm, setNewForm] = useState({
+    firstName: "", lastName: "", email: "", phone: "", password: "", staffRole: "SCANNER",
+  });
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     teamApi.getEventGates(eventId)
-      .then((r) => {
-        const d = unwrap<Gate[]>(r);
-        setGates(Array.isArray(d) ? d : []);
-      })
+      .then((r) => { const d = unwrap<Gate[]>(r); setGates(Array.isArray(d) ? d : []); })
       .catch(() => {});
   }, [eventId]);
 
-  async function handleSearch() {
-    if (!search.trim()) return;
-    setSearching(true);
-    setFound(null);
-    setSearched(false);
-    try {
-      const r = await teamApi.searchStaff(search.trim());
-      const d = unwrap<StaffUser[]>(r);
-      const list = Array.isArray(d) ? d : [];
-      setFound(list[0] ?? null);
-      setSearched(true);
-    } catch {
-      setSearched(true);
-    } finally {
-      setSearching(false);
-    }
+  function errMsg(err: unknown, fallback: string) {
+    const d = (err as { response?: { data?: { error?: { message?: string }; message?: string } } })?.response?.data;
+    return d?.error?.message ?? d?.message ?? fallback;
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSearch() {
+    if (!search.trim()) return;
+    setSearching(true); setFound(null); setSearched(false);
+    try {
+      const r = await teamApi.searchStaff(search.trim());
+      const list = Array.isArray(unwrap<StaffUser[]>(r)) ? unwrap<StaffUser[]>(r) : [];
+      setFound(list[0] ?? null); setSearched(true);
+    } catch { setSearched(true); } finally { setSearching(false); }
+  }
+
+  async function handleAssign(e: React.FormEvent) {
     e.preventDefault();
     if (!found) return;
     setSubmitting(true);
     try {
-      await teamApi.assignStaff(eventId, {
-        userId: found.id,
-        role,
-        ...(gateId ? { gateId } : {}),
-      });
-      toast.success("Staff assigned to event");
+      await teamApi.assignStaff(eventId, { userId: found.id, role, ...(gateId ? { gateId } : {}) });
+      toast.success(`${found.firstName} assigned to event`);
       onAdded();
-    } catch (err: unknown) {
-      toast.error(
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-          "Failed to assign staff"
-      );
-    } finally {
-      setSubmitting(false);
+    } catch (err) { toast.error(errMsg(err, "Failed to assign staff"), { duration: 6000 }); }
+    finally { setSubmitting(false); }
+  }
+
+  async function handleCreateAndAssign(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newForm.firstName.trim() || !newForm.lastName.trim()) {
+      toast.error("First and last name are required"); return;
     }
+    if (!newForm.email.trim() && !newForm.phone.trim()) {
+      toast.error("Email or phone is required"); return;
+    }
+    if (newForm.password.length < 6) {
+      toast.error("Password must be at least 6 characters"); return;
+    }
+    setSubmitting(true);
+    try {
+      const cr = await teamApi.createStaff({
+        firstName: newForm.firstName.trim(),
+        lastName: newForm.lastName.trim(),
+        email: newForm.email.trim() || undefined,
+        phone: newForm.phone.trim() || undefined,
+        password: newForm.password,
+        staffRole: newForm.staffRole,
+      });
+      const created = unwrap<{ id: string; firstName: string }>(cr);
+      await teamApi.assignStaff(eventId, { userId: created.id, role: newForm.staffRole });
+      toast.success(`${created.firstName} created and assigned to event`);
+      onAdded();
+    } catch (err) {
+      const msg = errMsg(err, "Failed to create staff");
+      if (msg.toLowerCase().includes("already in use")) {
+        toast.error("That email/phone already has an account — searching for them now…", { duration: 5000 });
+        setSearch(newForm.email || newForm.phone);
+        setTab("find");
+      } else {
+        toast.error(msg, { duration: 6000 });
+      }
+    } finally { setSubmitting(false); }
+  }
+
+  function setNew(field: keyof typeof newForm, val: string) {
+    setNewForm(prev => ({ ...prev, [field]: val }));
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 px-4">
-      <div className="bg-[var(--bg)] rounded-2xl w-full max-w-md p-6 shadow-2xl">
-        <div className="flex items-center justify-between mb-4">
+      <div className="bg-[var(--bg)] rounded-2xl w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-6 pb-4">
           <h3 className="font-bold text-lg">Add Staff to Event</h3>
-          <button onClick={onClose} className="text-[var(--muted)] hover:text-[var(--text)] text-xl leading-none">
-            ×
-          </button>
+          <button onClick={onClose} className="text-[var(--muted)] hover:text-[var(--text)] text-2xl leading-none w-8 h-8 flex items-center justify-center rounded-full hover:bg-[var(--surface)]">×</button>
         </div>
 
-        {/* Search */}
-        <div className="flex gap-2 mb-4">
-          <input
-            type="text"
-            className="input flex-1"
-            placeholder="Email or phone"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-          />
+        {/* Tabs */}
+        <div className="flex gap-1 mx-6 mb-5 p-1 bg-[var(--surface)] rounded-xl">
           <button
             type="button"
-            onClick={handleSearch}
-            disabled={searching}
-            className="btn-primary !py-2 !px-4 !text-sm disabled:opacity-60"
+            onClick={() => setTab("find")}
+            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${tab === "find" ? "bg-white shadow text-[var(--text)]" : "text-[var(--muted)] hover:text-[var(--text)]"}`}
           >
-            {searching ? "…" : "Search"}
+            Find Existing
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab("new")}
+            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${tab === "new" ? "bg-white shadow text-[var(--text)]" : "text-[var(--muted)] hover:text-[var(--text)]"}`}
+          >
+            + New Staff
           </button>
         </div>
 
-        {searched && !found && (
-          <p className="text-sm text-[var(--muted)] mb-3">
-            No staff member found. Add them to your team first from the
-            <Link href="/organizer/team" className="text-[var(--primary)] font-medium ml-1">Team page</Link>.
-          </p>
-        )}
-
-        {found && (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Found user */}
-            <div className="flex items-center gap-3 p-3 rounded-xl bg-[var(--surface)]">
-              <div className="w-9 h-9 rounded-full bg-[var(--primary)]/10 flex items-center justify-center text-sm font-bold text-[var(--primary)]">
-                {getInitials(found.firstName, found.lastName)}
+        <div className="px-6 pb-6">
+          {tab === "find" ? (
+            <div className="space-y-4">
+              {/* Search */}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  className="input-base flex-1"
+                  placeholder="Email, phone or name"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                />
+                <button type="button" onClick={handleSearch} disabled={searching}
+                  className="btn-primary !py-2 !px-4 !text-sm disabled:opacity-60">
+                  {searching ? "…" : "Search"}
+                </button>
               </div>
-              <div>
-                <p className="font-semibold text-sm">
-                  {found.firstName} {found.lastName}
-                </p>
-                <p className="text-xs text-[var(--muted)]">
-                  {found.email ?? found.phone ?? ""}
-                </p>
+
+              {searched && !found && (
+                <div className="text-center py-4">
+                  <p className="text-sm text-[var(--muted)] mb-3">No one found with that search.</p>
+                  <button type="button" onClick={() => setTab("new")}
+                    className="btn-primary !py-2 !px-5 !text-sm">
+                    Create New Staff Member
+                  </button>
+                </div>
+              )}
+
+              {found && (
+                <form onSubmit={handleAssign} className="space-y-4">
+                  <div className="flex items-center gap-3 p-3 rounded-xl bg-[var(--surface)]">
+                    <div className="w-10 h-10 rounded-full bg-[var(--primary)]/10 flex items-center justify-center text-sm font-bold text-[var(--primary)] flex-shrink-0">
+                      {getInitials(found.firstName, found.lastName)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm">{found.firstName} {found.lastName}</p>
+                      <p className="text-xs text-[var(--muted)] truncate">{found.email ?? found.phone ?? ""}</p>
+                    </div>
+                    <button type="button" onClick={() => { setFound(null); setSearched(false); setSearch(""); }}
+                      className="text-xs text-[var(--muted)] hover:text-[var(--text)]">Change</button>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-[var(--muted)] uppercase tracking-wider mb-1.5">Event Role</label>
+                    <select className="input-base w-full" value={role} onChange={(e) => setRole(e.target.value)}>
+                      {STAFF_ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                  </div>
+
+                  {gates.length > 0 && (
+                    <div>
+                      <label className="block text-xs font-semibold text-[var(--muted)] uppercase tracking-wider mb-1.5">Gate (optional)</label>
+                      <select className="input-base w-full" value={gateId} onChange={(e) => setGateId(e.target.value)}>
+                        <option value="">No specific gate</option>
+                        {gates.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+                      </select>
+                    </div>
+                  )}
+
+                  <button type="submit" disabled={submitting} className="btn-primary w-full !py-3 disabled:opacity-60">
+                    {submitting ? "Assigning…" : "Assign to Event"}
+                  </button>
+                </form>
+              )}
+            </div>
+          ) : (
+            <form onSubmit={handleCreateAndAssign} className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-[var(--muted)] uppercase tracking-wider mb-1.5">First Name *</label>
+                  <input type="text" className="input-base" placeholder="e.g. John" value={newForm.firstName}
+                    onChange={(e) => setNew("firstName", e.target.value)} />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-[var(--muted)] uppercase tracking-wider mb-1.5">Last Name *</label>
+                  <input type="text" className="input-base" placeholder="e.g. Doe" value={newForm.lastName}
+                    onChange={(e) => setNew("lastName", e.target.value)} />
+                </div>
               </div>
-            </div>
 
-            {/* Role */}
-            <div>
-              <label className="block text-xs font-semibold text-[var(--muted)] uppercase tracking-wider mb-2">
-                Role
-              </label>
-              <select
-                className="input w-full"
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-              >
-                {STAFF_ROLES.map((r) => (
-                  <option key={r} value={r}>{r}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Gate */}
-            {gates.length > 0 && (
               <div>
-                <label className="block text-xs font-semibold text-[var(--muted)] uppercase tracking-wider mb-2">
-                  Gate (optional)
-                </label>
-                <select
-                  className="input w-full"
-                  value={gateId}
-                  onChange={(e) => setGateId(e.target.value)}
-                >
-                  <option value="">No specific gate</option>
-                  {gates.map((g) => (
-                    <option key={g.id} value={g.id}>{g.name}</option>
-                  ))}
+                <label className="block text-xs font-semibold text-[var(--muted)] uppercase tracking-wider mb-1.5">Email</label>
+                <input type="email" className="input-base" placeholder="staff@example.com" value={newForm.email}
+                  onChange={(e) => setNew("email", e.target.value)} />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[var(--muted)] uppercase tracking-wider mb-1.5">Phone</label>
+                <input type="tel" className="input-base" placeholder="+254 7XX XXX XXX" value={newForm.phone}
+                  onChange={(e) => setNew("phone", e.target.value)} />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[var(--muted)] uppercase tracking-wider mb-1.5">Password *</label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    className="input-base w-full pr-11"
+                    placeholder="Min 6 characters"
+                    value={newForm.password}
+                    onChange={(e) => setNew("password", e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(v => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--muted)] hover:text-[var(--text)] transition-colors"
+                  >
+                    {showPassword ? (
+                      <svg width="20" height="20" fill="none" viewBox="0 0 24 24">
+                        <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                        <line x1="1" y1="1" x2="23" y2="23" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                      </svg>
+                    ) : (
+                      <svg width="20" height="20" fill="none" viewBox="0 0 24 24">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                        <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8"/>
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[var(--muted)] uppercase tracking-wider mb-1.5">Role *</label>
+                <select className="input-base w-full" value={newForm.staffRole} onChange={(e) => setNew("staffRole", e.target.value)}>
+                  {STAFF_ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
                 </select>
               </div>
-            )}
 
-            <button
-              type="submit"
-              disabled={submitting}
-              className="btn-primary w-full !py-3 disabled:opacity-60"
-            >
-              {submitting ? "Assigning…" : "Assign to Event"}
-            </button>
-          </form>
-        )}
+              <button type="submit" disabled={submitting} className="btn-primary w-full !py-3 disabled:opacity-60">
+                {submitting ? "Creating & Assigning…" : "Create Staff & Assign"}
+              </button>
+            </form>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -425,7 +521,7 @@ export default function OrganizerEventDetailPage() {
   useEffect(() => {
     const user = getUser<User>();
     if (!user) { router.replace("/login"); return; }
-    if (user.role !== "ORGANIZER" && user.role !== "CLUB_OWNER") {
+    if (!["ORGANIZER", "CLUB_OWNER", "ADMIN", "SUPER_ADMIN"].includes(user.role)) {
       router.replace("/");
       return;
     }
