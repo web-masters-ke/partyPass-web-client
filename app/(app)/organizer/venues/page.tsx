@@ -87,7 +87,7 @@ export default function OrganizerVenuesPage() {
           <h1 className="text-3xl font-black">My Clubs</h1>
           <p className="text-[var(--muted)] text-sm mt-1">Venues you own and manage</p>
         </div>
-        <Link href="/venues" className="btn-primary !py-2.5 !px-5 !text-sm">
+        <Link href="/organizer/venues/new" className="btn-primary !py-2.5 !px-5 !text-sm">
           + Register Venue
         </Link>
       </div>
@@ -103,8 +103,8 @@ export default function OrganizerVenuesPage() {
           <div className="text-6xl mb-4">🏛️</div>
           <p className="font-bold text-xl text-[var(--text)] mb-2">No venues yet</p>
           <p className="text-sm text-[var(--muted)] mb-6">Register a venue to start managing club nights and memberships</p>
-          <Link href="/venues" className="btn-primary !text-sm !py-2.5 !px-6">
-            Browse Venues
+          <Link href="/organizer/venues/new" className="btn-primary !text-sm !py-2.5 !px-6">
+            Register a Venue
           </Link>
         </div>
       ) : (
