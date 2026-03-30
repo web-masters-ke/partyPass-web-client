@@ -85,7 +85,7 @@ export default function AppSidebar() {
     }).catch(() => {});
   }, []);
 
-  const isOrganizer = user?.role === "ORGANIZER" || user?.role === "CLUB_OWNER";
+  const isOrganizer = user?.role === "ORGANIZER" || user?.role === "ORGANIZER";
 
   function logout() { removeToken(); router.push("/login"); }
 

@@ -110,7 +110,7 @@ export default function OrganizerDashboard() {
   useEffect(() => {
     const user = getUser<User>();
     if (!user) { router.replace("/login"); return; }
-    if (!["ORGANIZER","CLUB_OWNER","ADMIN","SUPER_ADMIN"].includes(user.role)) {
+    if (!["ORGANIZER","ORGANIZER","ADMIN","SUPER_ADMIN"].includes(user.role)) {
       router.replace("/");
       return;
     }
@@ -190,7 +190,7 @@ export default function OrganizerDashboard() {
         <Link href="/organizer/wallet" className="card px-4 py-3 text-sm font-semibold flex items-center gap-2 hover:shadow-md transition-shadow">
           <span className="text-lg">💰</span> Wallet · {fmtCurrency(wallet?.availableToWithdraw ?? 0)}
         </Link>
-        {(getUser<User>()?.role === "CLUB_OWNER" || getUser<User>()?.role === "ADMIN" || getUser<User>()?.role === "SUPER_ADMIN") && (
+        {(getUser<User>()?.role === "ORGANIZER" || getUser<User>()?.role === "ADMIN" || getUser<User>()?.role === "SUPER_ADMIN") && (
           <Link href="/organizer/venues" className="card px-4 py-3 text-sm font-semibold flex items-center gap-2 hover:shadow-md transition-shadow border-[var(--primary)] border-2">
             <span className="text-lg">🏛️</span> My Clubs
           </Link>

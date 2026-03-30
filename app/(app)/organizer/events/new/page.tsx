@@ -102,7 +102,7 @@ export default function CreateEventPage() {
   useEffect(() => {
     const user = getUser<User>();
     if (!user) { router.replace("/login"); return; }
-    const canCreate = ["ORGANIZER", "CLUB_OWNER", "ADMIN", "SUPER_ADMIN"].includes(user.role);
+    const canCreate = ["ORGANIZER", "ADMIN", "SUPER_ADMIN"].includes(user.role);
     if (!canCreate) {
       toast.error("You need an organiser account to create events");
       router.replace("/");

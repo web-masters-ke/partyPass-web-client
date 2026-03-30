@@ -67,7 +67,7 @@ export default function OrganizerVenuesPage() {
   useEffect(() => {
     const user = getUser<User>();
     if (!user) { router.replace("/login"); return; }
-    if (!["CLUB_OWNER", "ADMIN", "SUPER_ADMIN"].includes(user.role)) {
+    if (!["ORGANIZER", "ADMIN", "SUPER_ADMIN"].includes(user.role)) {
       router.replace("/organizer");
       return;
     }

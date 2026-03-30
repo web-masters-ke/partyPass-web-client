@@ -37,7 +37,7 @@ export default function MobileTopBar() {
   // close drawer on route change
   useEffect(() => { setOpen(false); }, [pathname]);
 
-  const isOrganizer = user?.role === "ORGANIZER" || user?.role === "CLUB_OWNER";
+  const isOrganizer = user?.role === "ORGANIZER" || user?.role === "ORGANIZER";
   const visible = ALL_LINKS.filter((l) => !l.organizer || isOrganizer);
   const sections = [...new Set(visible.map((l) => l.section))];
 

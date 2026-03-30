@@ -1370,7 +1370,7 @@ export default function TeamManagementPage() {
   useEffect(() => {
     const user = getUser<User>();
     if (!user) { router.replace("/login"); return; }
-    if (!["ORGANIZER","CLUB_OWNER","ADMIN","SUPER_ADMIN"].includes(user.role)) { router.replace("/"); return; }
+    if (!["ORGANIZER","ORGANIZER","ADMIN","SUPER_ADMIN"].includes(user.role)) { router.replace("/"); return; }
 
     load();
     organizerApi.myEvents({ limit: 100 })

@@ -34,7 +34,7 @@ export default function MobileTabBar() {
     setUser(getUser<User>());
   }, []);
 
-  const isOrganizer = user?.role === "ORGANIZER" || user?.role === "CLUB_OWNER";
+  const isOrganizer = user?.role === "ORGANIZER" || user?.role === "ORGANIZER";
   const tabs = isOrganizer ? ORGANIZER_TABS : BASE_TABS;
 
   return (

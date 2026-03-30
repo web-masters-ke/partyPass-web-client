@@ -24,7 +24,7 @@ export default function LoginPage() {
       setRefreshToken(data.refreshToken);
       setUser(data.user);
       toast.success("Welcome back!");
-      const isOrganizer = data.user?.role === "ORGANIZER" || data.user?.role === "CLUB_OWNER";
+      const isOrganizer = data.user?.role === "ORGANIZER" || data.user?.role === "ORGANIZER";
       router.push(isOrganizer ? "/organizer" : "/events");
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || "Login failed";

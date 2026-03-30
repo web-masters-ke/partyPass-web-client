@@ -42,7 +42,7 @@ export default function Navbar() {
     router.push("/login");
   }
 
-  const isOrganizer = user?.role === "ORGANIZER" || user?.role === "CLUB_OWNER";
+  const isOrganizer = user?.role === "ORGANIZER" || user?.role === "ORGANIZER";
 
   const links = [
     { href: "/events", label: "Parties" },
