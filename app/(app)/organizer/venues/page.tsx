@@ -84,7 +84,7 @@ export default function OrganizerVenuesPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-black">My Clubs</h1>
+          <h1 className="text-3xl font-black">Clubs & Venues</h1>
           <p className="text-[var(--muted)] text-sm mt-1">Venues you own and manage</p>
         </div>
         <Link href="/organizer/venues/new" className="btn-primary !py-2.5 !px-5 !text-sm">

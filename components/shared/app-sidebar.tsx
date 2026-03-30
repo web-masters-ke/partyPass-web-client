@@ -37,7 +37,7 @@ const ORGANIZER_ITEMS: NavItem[] = [
   { href: "/organizer/events/new", icon: "➕", label: "Create Event" },
   { href: "/organizer/wallet",     icon: "💰", label: "Revenue & Payouts" },
   { href: "/organizer/team",       icon: "👥", label: "My Team" },
-  { href: "/organizer/venues",     icon: "🏛️", label: "My Clubs" },
+  { href: "/organizer/venues",     icon: "🏛️", label: "Clubs & Venues" },
 ];
 
 function NavSection({ title, items }: { title?: string; items: NavItem[] }) {

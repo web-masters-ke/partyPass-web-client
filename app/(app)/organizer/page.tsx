@@ -192,7 +192,7 @@ export default function OrganizerDashboard() {
         </Link>
         {(getUser<User>()?.role === "ORGANIZER" || getUser<User>()?.role === "ADMIN" || getUser<User>()?.role === "SUPER_ADMIN") && (
           <Link href="/organizer/venues" className="card px-4 py-3 text-sm font-semibold flex items-center gap-2 hover:shadow-md transition-shadow border-[var(--primary)] border-2">
-            <span className="text-lg">🏛️</span> My Clubs
+            <span className="text-lg">🏛️</span> Clubs & Venues
           </Link>
         )}
       </div>

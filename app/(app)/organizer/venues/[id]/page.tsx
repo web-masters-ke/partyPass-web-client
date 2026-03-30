@@ -128,7 +128,7 @@ export default function ClubVenueDetailPage() {
       {/* Back + header */}
       <div className="mb-6">
         <Link href="/organizer/venues" className="text-xs text-[var(--muted)] hover:text-[var(--primary)] mb-3 inline-block">
-          ← My Clubs
+          ← Clubs & Venues
         </Link>
         <div className="flex items-start gap-4">
           <div className="w-16 h-16 rounded-2xl bg-[var(--primary)]/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
