@@ -91,7 +91,7 @@ export const notificationsApi = {
 
 export const reviewsApi = {
   create: (data: Record<string, unknown>) => api.post("/reviews", data),
-  event: (eventId: string) => api.get(`/reviews/event/${eventId}`),
+  event: (eventId: string) => api.get(`/events/${eventId}/reviews`),
 };
 
 export const promosApi = {
