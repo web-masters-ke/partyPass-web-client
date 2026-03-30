@@ -1,7 +1,9 @@
 "use client";
 import { useEffect, useRef, ReactNode } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Navbar from "@/components/shared/navbar";
+import { isAuthenticated } from "@/lib/auth";
 
 // ── Scroll-reveal ─────────────────────────────────────────────────────────────
 function Reveal({ children, delay = 0, className = "" }: { children: ReactNode; delay?: number; className?: string }) {
@@ -110,6 +112,11 @@ const TIERS = [
 ];
 
 export default function LandingPage() {
+  const router = useRouter();
+  useEffect(() => {
+    if (isAuthenticated()) router.replace("/events");
+  }, [router]);
+
   return (
     <div className="flex flex-col" style={{ background: DARK }}>
       <Navbar />
