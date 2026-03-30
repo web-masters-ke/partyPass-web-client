@@ -6,20 +6,27 @@ import { fmtDate, fmtCurrency, fmtRelative } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 
 const FALLBACK = [
-  "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400&q=80",
-  "https://images.unsplash.com/photo-1571266028243-e4733b0f0bb0?w=400&q=80",
-  "https://images.unsplash.com/photo-1574391884720-bbc3740c59d1?w=400&q=80",
-  "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&q=80",
+  "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=120&q=70",
+  "https://images.unsplash.com/photo-1571266028243-e4733b0f0bb0?w=120&q=70",
+  "https://images.unsplash.com/photo-1574391884720-bbc3740c59d1?w=120&q=70",
+  "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=120&q=70",
 ];
 
-const STATUS_CONFIG: Record<string, { label: string; icon: string; bg: string; text: string; border: string }> = {
-  PAID:              { label: "Paid",          icon: "✓",  bg: "bg-green-50",   text: "text-green-700",  border: "border-green-200" },
-  PENDING:           { label: "Pending",        icon: "⏳", bg: "bg-yellow-50",  text: "text-yellow-700", border: "border-yellow-200" },
-  AWAITING_PAYMENT:  { label: "Awaiting Pay",   icon: "💳", bg: "bg-yellow-50",  text: "text-yellow-700", border: "border-yellow-200" },
-  FAILED:            { label: "Failed",         icon: "✗",  bg: "bg-red-50",     text: "text-red-600",    border: "border-red-200" },
-  CANCELLED:         { label: "Cancelled",      icon: "✗",  bg: "bg-gray-100",   text: "text-[var(--muted)]", border: "border-[var(--border)]" },
-  REFUNDED:          { label: "Refunded",       icon: "↩",  bg: "bg-blue-50",    text: "text-blue-600",   border: "border-blue-200" },
-  PARTIALLY_REFUNDED:{ label: "Part Refunded",  icon: "↩",  bg: "bg-blue-50",    text: "text-blue-600",   border: "border-blue-200" },
+const STATUS_CONFIG: Record<string, { label: string; dot: string; text: string }> = {
+  PAID:               { label: "Paid",         dot: "bg-green-500",  text: "text-green-600" },
+  PENDING:            { label: "Pending",       dot: "bg-yellow-400", text: "text-yellow-600" },
+  AWAITING_PAYMENT:   { label: "Awaiting Pay",  dot: "bg-yellow-400", text: "text-yellow-600" },
+  FAILED:             { label: "Failed",        dot: "bg-red-500",    text: "text-red-500" },
+  CANCELLED:          { label: "Cancelled",     dot: "bg-gray-400",   text: "text-[var(--muted)]" },
+  REFUNDED:           { label: "Refunded",      dot: "bg-blue-400",   text: "text-blue-500" },
+  PARTIALLY_REFUNDED: { label: "Part Refunded", dot: "bg-blue-400",   text: "text-blue-500" },
+};
+
+const PAYMENT_ICONS: Record<string, string> = {
+  MPESA: "🟢",
+  CARD: "💳",
+  WALLET: "👛",
+  TEST: "🧪",
 };
 
 export default function OrdersPage() {
@@ -40,14 +47,13 @@ export default function OrdersPage() {
   if (loading) return (
     <div>
       <div className="h-9 w-56 bg-[var(--surface)] rounded-xl animate-pulse mb-6" />
-      <div className="space-y-4">
-        {[1,2,3].map((i) => (
-          <div key={i} className="rounded-2xl overflow-hidden border border-[var(--border)] animate-pulse"
-            style={{ animationDelay: `${i * 80}ms` }}>
-            <div className="h-40 bg-[var(--surface)]" />
-            <div className="p-4 space-y-2">
+      <div className="space-y-3">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="card p-4 animate-pulse flex gap-4" style={{ animationDelay: `${i * 80}ms` }}>
+            <div className="w-16 h-16 rounded-xl bg-[var(--surface)] shrink-0" />
+            <div className="flex-1 space-y-2 pt-1">
               <div className="h-4 bg-[var(--border)] rounded w-2/3" />
-              <div className="h-3 bg-[var(--border)] rounded w-1/2" />
+              <div className="h-3 bg-[var(--border)] rounded w-1/3" />
             </div>
           </div>
         ))}
@@ -56,73 +62,75 @@ export default function OrdersPage() {
   );
 
   return (
-    <div>
-      <h1 className="text-3xl font-black mb-6 text-[var(--text)]">Order History</h1>
+    <div className="max-w-2xl mx-auto">
+      <h1 className="text-3xl font-black mb-1 text-[var(--text)]">Purchase History</h1>
+      <p className="text-sm text-[var(--muted)] mb-6">{orders.length} order{orders.length !== 1 ? "s" : ""}</p>
 
       {orders.length === 0 ? (
         <div className="text-center py-24">
-          <div className="text-6xl mb-4">🛒</div>
+          <div className="text-6xl mb-4">🧾</div>
           <p className="font-bold text-xl text-[var(--text)] mb-2">No orders yet</p>
           <p className="text-[var(--muted)] text-sm mb-6">Grab tickets to your first event</p>
-          <button onClick={() => router.push("/events")} className="btn-primary">Browse Parties</button>
+          <button onClick={() => router.push("/events")} className="btn-primary">Browse Events</button>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="card overflow-hidden divide-y divide-[var(--border)]">
           {orders.map((order, idx) => {
             const cfg = STATUS_CONFIG[order.status] ?? STATUS_CONFIG.PENDING;
             const img = order.event?.coverImageUrl || FALLBACK[idx % FALLBACK.length];
             const ticketCount = order.tickets?.length ?? 0;
+            const paymentIcon = PAYMENT_ICONS[order.paymentMethod?.toUpperCase() ?? ""] ?? "💰";
 
             return (
-              <div key={order.id} className="rounded-2xl overflow-hidden border border-[var(--border)] bg-[var(--card-bg)] shadow-sm hover:shadow-md transition-shadow">
-                {/* Event banner */}
-                <div className="relative h-40 overflow-hidden">
-                  <img src={img} alt={order.event?.title ?? ""} className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
-
-                  {/* Status badge top-right */}
-                  <div className={`absolute top-3 right-3 flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${cfg.bg} ${cfg.text} ${cfg.border}`}>
-                    <span>{cfg.icon}</span>
-                    <span>{cfg.label}</span>
-                  </div>
-
-                  {/* Event info bottom-left */}
-                  <div className="absolute bottom-0 left-0 right-0 p-4">
-                    <p className="text-white font-black text-lg leading-tight line-clamp-1">{order.event?.title ?? "Event"}</p>
-                    {order.event?.startDateTime && (
-                      <p className="text-white/70 text-xs mt-0.5">📅 {fmtDate(order.event.startDateTime)}</p>
-                    )}
-                  </div>
+              <div
+                key={order.id}
+                onClick={() => order.status === "PAID" && router.push("/tickets")}
+                className={`flex items-center gap-4 p-4 transition-colors ${order.status === "PAID" ? "cursor-pointer hover:bg-[var(--surface)]" : ""}`}
+              >
+                {/* Thumbnail */}
+                <div className="w-16 h-16 rounded-xl overflow-hidden shrink-0 bg-[var(--surface)]">
+                  <img
+                    src={img}
+                    alt={order.event?.title ?? ""}
+                    className="w-full h-full object-cover"
+                    onError={(e) => { (e.target as HTMLImageElement).src = FALLBACK[0]; }}
+                  />
                 </div>
 
-                {/* Order details */}
-                <div className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3 text-sm text-[var(--muted)]">
-                      <span>🎟️ {ticketCount} ticket{ticketCount !== 1 ? "s" : ""}</span>
-                      {order.paymentMethod && (
-                        <span className="hidden sm:inline">· {order.paymentMethod.replace(/_/g, " ")}</span>
-                      )}
-                      <span>· {fmtRelative(order.createdAt)}</span>
-                    </div>
-                    <p className="font-black text-xl text-[var(--text)]">{fmtCurrency(order.total, order.currency)}</p>
+                {/* Middle info */}
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-sm text-[var(--text)] truncate">{order.event?.title ?? "Event"}</p>
+                  <p className="text-xs text-[var(--muted)] mt-0.5">
+                    {order.event?.startDateTime ? fmtDate(order.event.startDateTime) : ""}
+                  </p>
+                  <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                    {/* status */}
+                    <span className={`flex items-center gap-1 text-xs font-semibold ${cfg.text}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
+                      {cfg.label}
+                    </span>
+                    <span className="text-[var(--border)]">·</span>
+                    {/* ticket count */}
+                    <span className="text-xs text-[var(--muted)]">
+                      🎟️ {ticketCount} ticket{ticketCount !== 1 ? "s" : ""}
+                    </span>
+                    <span className="text-[var(--border)]">·</span>
+                    {/* payment method */}
+                    <span className="text-xs text-[var(--muted)]">
+                      {paymentIcon} {(order.paymentMethod ?? "").replace(/_/g, " ") || "—"}
+                    </span>
                   </div>
-
                   {order.mpesaRef && (
-                    <div className="mt-3 bg-[var(--surface)] rounded-xl px-3 py-2 flex items-center gap-2">
-                      <span className="text-green-600 text-sm font-bold">M-Pesa</span>
-                      <span className="text-xs text-[var(--muted)]">Ref:</span>
-                      <span className="font-mono text-xs text-[var(--text)] font-semibold">{order.mpesaRef}</span>
-                    </div>
+                    <p className="font-mono text-[10px] text-[var(--muted)] mt-1">Ref: {order.mpesaRef}</p>
                   )}
+                </div>
 
+                {/* Right: amount + time */}
+                <div className="text-right shrink-0">
+                  <p className="font-black text-base text-[var(--text)]">{fmtCurrency(order.total, order.currency)}</p>
+                  <p className="text-[10px] text-[var(--muted)] mt-0.5">{fmtRelative(order.createdAt)}</p>
                   {order.status === "PAID" && (
-                    <button
-                      onClick={() => router.push("/tickets")}
-                      className="mt-3 w-full py-2.5 rounded-xl bg-[var(--primary)] text-white font-bold text-sm hover:opacity-90 transition-opacity"
-                    >
-                      View Tickets →
-                    </button>
+                    <span className="text-[10px] text-[var(--primary)] font-semibold mt-1 block">View tickets →</span>
                   )}
                 </div>
               </div>

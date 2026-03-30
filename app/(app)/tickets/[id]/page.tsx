@@ -1,9 +1,12 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ticketsApi, pdfApi, digitalWalletApi, unwrap } from "@/lib/api";
+import { ticketsApi, unwrap } from "@/lib/api";
+import { getToken } from "@/lib/auth";
 import type { Ticket } from "@/types";
 import { fmtDate, fmtTime, fmtCurrency } from "@/lib/utils";
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000/api/v1";
 
 const STATUS_COLORS: Record<string, string> = {
   VALID: "bg-green-100 text-green-700 border-green-200",
@@ -18,34 +21,29 @@ export default function TicketDetailPage() {
   const router = useRouter();
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [loading, setLoading] = useState(true);
-  const [pdfLoading, setPdfLoading] = useState(false);
-  const [appleLoading, setAppleLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
-  const [actionMsg, setActionMsg] = useState<string | null>(null);
 
   const handlePdf = async () => {
-    setPdfLoading(true); setActionMsg(null);
+    const token = getToken();
+    const url = `${API_BASE}/tickets/${id}/pdf`;
     try {
-      await pdfApi.generate(id);
-      setActionMsg("✅ PDF generated — check your email.");
-    } catch { setActionMsg("❌ Could not generate PDF."); }
-    finally { setPdfLoading(false); }
-  };
-  const handleApple = async () => {
-    setAppleLoading(true); setActionMsg(null);
-    try {
-      await digitalWalletApi.apple(id);
-      setActionMsg("✅ Apple Wallet pass ready.");
-    } catch { setActionMsg("❌ Apple Wallet unavailable."); }
-    finally { setAppleLoading(false); }
-  };
-  const handleGoogle = async () => {
-    setGoogleLoading(true); setActionMsg(null);
-    try {
-      await digitalWalletApi.google(id);
-      setActionMsg("✅ Google Wallet pass ready.");
-    } catch { setActionMsg("❌ Google Wallet unavailable."); }
-    finally { setGoogleLoading(false); }
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw new Error(`${res.status}`);
+      const contentType = res.headers.get("content-type") ?? "";
+      if (!contentType.includes("pdf")) {
+        // Response is JSON error envelope, not a PDF
+        const body = await res.json();
+        alert(body?.error?.message ?? "Could not generate PDF.");
+        return;
+      }
+      const blob = await res.blob();
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `partypass-ticket-${id.slice(-8).toUpperCase()}.pdf`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch {
+      alert("Could not download PDF. Try again.");
+    }
   };
 
   useEffect(() => {
@@ -97,9 +95,20 @@ export default function TicketDetailPage() {
           <p className="text-sm text-[var(--muted)]">📅 {fmtDate(ticket.event.startDateTime)}</p>
           <p className="text-sm text-[var(--muted)]">🕐 {fmtTime(ticket.event.startDateTime)}</p>
 
+          {(() => {
+            const name = ticket.holderName ?? (ticket.user ? `${ticket.user.firstName} ${ticket.user.lastName}` : null);
+            const email = ticket.holderEmail ?? ticket.user?.email ?? null;
+            return (
+              <div className="mt-3 text-sm text-[var(--muted)]">
+                {name && <p>👤 {name}</p>}
+                {email && <p>✉️ {email}</p>}
+              </div>
+            );
+          })()}
+
           <div className="mt-4 flex items-center gap-2">
-            {ticket.tier.color && <span className="w-3 h-3 rounded-full" style={{ background: ticket.tier.color }} />}
-            <span className="font-bold">{ticket.tier.name}</span>
+            {ticket.tier?.color && <span className="w-3 h-3 rounded-full" style={{ background: ticket.tier.color }} />}
+            <span className="font-bold">{ticket.tier?.name ?? "General Admission"}</span>
           </div>
           {ticket.tier.perks?.length > 0 && (
             <div className="flex gap-1.5 mt-2 flex-wrap">
@@ -160,35 +169,13 @@ export default function TicketDetailPage() {
           )}
         </div>
         {/* Action buttons */}
-        <div className="mt-6 space-y-2">
-          {actionMsg && (
-            <div className={`text-sm rounded-xl px-4 py-3 mb-1 ${actionMsg.startsWith("✅") ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"}`}>
-              {actionMsg}
-            </div>
-          )}
+        <div className="mt-6">
           <button
             onClick={handlePdf}
-            disabled={pdfLoading}
-            className="w-full border border-[var(--border)] bg-[var(--card-bg)] hover:bg-[var(--surface)] text-[var(--text)] font-semibold py-3 rounded-full transition text-sm flex items-center justify-center gap-2 disabled:opacity-60"
+            className="w-full border border-[var(--border)] bg-[var(--card-bg)] hover:bg-[var(--surface)] text-[var(--text)] font-semibold py-3 rounded-full transition text-sm flex items-center justify-center gap-2"
           >
-            📄 {pdfLoading ? "Generating PDF…" : "Download PDF Ticket"}
+            📄 Download PDF Ticket
           </button>
-          <div className="flex gap-2">
-            <button
-              onClick={handleApple}
-              disabled={appleLoading}
-              className="flex-1 border border-[var(--border)] bg-[var(--card-bg)] hover:bg-[var(--surface)] text-[var(--text)] font-semibold py-3 rounded-full transition text-sm flex items-center justify-center gap-1.5 disabled:opacity-60"
-            >
-               {appleLoading ? "…" : "Apple Wallet"}
-            </button>
-            <button
-              onClick={handleGoogle}
-              disabled={googleLoading}
-              className="flex-1 border border-[var(--border)] bg-[var(--card-bg)] hover:bg-[var(--surface)] text-[var(--text)] font-semibold py-3 rounded-full transition text-sm flex items-center justify-center gap-1.5 disabled:opacity-60"
-            >
-              💳 {googleLoading ? "…" : "Google Wallet"}
-            </button>
-          </div>
         </div>
       </div>
     </div>

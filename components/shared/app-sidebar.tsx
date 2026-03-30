@@ -15,18 +15,20 @@ const TIER_COLORS: Record<string, string> = {
 type NavItem = { href: string; icon: string; label: string };
 
 const DISCOVER: NavItem[] = [
-  { href: "/events",  icon: "🎉", label: "Parties" },
-  { href: "/venues",  icon: "🏟️", label: "Venues" },
-  { href: "/clubs",   icon: "🎵", label: "Club Nights" },
+  { href: "/events",  icon: "🎉", label: "Events" },
+  { href: "/venues",  icon: "🏟️", label: "Venues & Clubs" },
 ];
 
-const MY_STUFF: NavItem[] = [
-  { href: "/tickets",       icon: "🎟️", label: "My Tickets" },
-  { href: "/orders",        icon: "📦", label: "Orders" },
-  { href: "/wallet",        icon: "💳", label: "Wallet" },
-  { href: "/loyalty",       icon: "💎", label: "Loyalty" },
-  { href: "/membership",    icon: "👑", label: "Membership" },
-  { href: "/waitlist",      icon: "⏳", label: "Waitlist" },
+const MY_TICKETS: NavItem[] = [
+  { href: "/tickets",  icon: "🎟️", label: "My Tickets" },       // QR entry passes
+  { href: "/orders",   icon: "🧾", label: "Purchase History" }, // payment receipts
+  { href: "/waitlist", icon: "⏳", label: "Waitlist" },
+];
+
+const MY_ACCOUNT: NavItem[] = [
+  { href: "/wallet",      icon: "💳", label: "Wallet" },
+  { href: "/loyalty",     icon: "💎", label: "Loyalty & Rewards" },
+  { href: "/membership",  icon: "👑", label: "Membership" },
   { href: "/notifications", icon: "🔔", label: "Notifications" },
 ];
 
@@ -35,6 +37,7 @@ const ORGANIZER_ITEMS: NavItem[] = [
   { href: "/organizer/events/new", icon: "➕", label: "Create Event" },
   { href: "/organizer/wallet",     icon: "💰", label: "Revenue & Payouts" },
   { href: "/organizer/team",       icon: "👥", label: "My Team" },
+  { href: "/organizer/venues",     icon: "🏛️", label: "My Clubs" },
 ];
 
 function NavSection({ title, items }: { title?: string; items: NavItem[] }) {
@@ -145,7 +148,7 @@ export default function AppSidebar() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search parties…"
+            placeholder="Search events…"
             className="bg-transparent text-sm text-[var(--text)] placeholder:text-[var(--muted)] outline-none flex-1 min-w-0"
           />
         </div>
@@ -179,7 +182,8 @@ export default function AppSidebar() {
       {/* Nav sections */}
       <nav className="flex-1 px-3 pb-4 space-y-4 overflow-y-auto scrollbar-none">
         <NavSection title="Discover" items={DISCOVER} />
-        <NavSection title="My Account" items={MY_STUFF} />
+        <NavSection title="My Tickets" items={MY_TICKETS} />
+        <NavSection title="My Account" items={MY_ACCOUNT} />
         {isOrganizer && <NavSection title="Organizer" items={ORGANIZER_ITEMS} />}
       </nav>
 

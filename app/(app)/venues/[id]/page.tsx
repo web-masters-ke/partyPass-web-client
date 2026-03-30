@@ -22,6 +22,14 @@ function getMapsUrl(venue: Venue) {
   return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`;
 }
 
+function getEmbedUrl(venue: Venue) {
+  if (venue.latitude && venue.longitude) {
+    return `https://www.openstreetmap.org/export/embed.html?bbox=${venue.longitude - 0.005},${venue.latitude - 0.005},${venue.longitude + 0.005},${venue.latitude + 0.005}&layer=mapnik&marker=${venue.latitude},${venue.longitude}`;
+  }
+  const address = [venue.address, venue.city, venue.country].filter(Boolean).join(", ");
+  return `https://www.openstreetmap.org/export/embed.html?query=${encodeURIComponent(address)}&layer=mapnik`;
+}
+
 export default function VenueDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -43,8 +51,9 @@ export default function VenueDetailPage() {
   if (!venue) return <div className="text-center py-20 text-[var(--muted)]">Venue not found</div>;
 
   const fallback = FALLBACK_IMAGES[parseInt(id.slice(-2), 16) % FALLBACK_IMAGES.length];
-  const photos = [venue.bannerUrl || fallback, ...(venue.photos || [])].filter(Boolean) as string[];
+  const photos = [venue.bannerUrl ?? fallback, ...(venue.photos ?? [])].filter(Boolean) as string[];
   const mapsUrl = getMapsUrl(venue);
+  const embedUrl = getEmbedUrl(venue);
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -53,7 +62,12 @@ export default function VenueDetailPage() {
         <div className="relative h-64 md:h-80 bg-[var(--primary)]">
           {photos.length > 0 ? (
             <>
-              <img src={photos[photoIdx]} alt={venue.name} className="w-full h-full object-cover" />
+              <img
+                src={photos[photoIdx]}
+                alt={venue.name}
+                className="w-full h-full object-cover"
+                onError={(e) => { (e.target as HTMLImageElement).src = fallback; }}
+              />
               {photos.length > 1 && (
                 <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5">
                   {photos.map((_, i) => (
@@ -98,16 +112,29 @@ export default function VenueDetailPage() {
             </div>
           )}
 
+          {/* Embedded map */}
+          <div className="mt-5 rounded-xl overflow-hidden border border-[var(--border)] h-48">
+            <iframe
+              src={embedUrl}
+              width="100%"
+              height="100%"
+              style={{ border: 0 }}
+              loading="lazy"
+              title={`Map of ${venue.name}`}
+            />
+          </div>
+
+          {/* Directions — opens in new tab, stays in app */}
           <a
             href={mapsUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-5 w-full flex items-center justify-center gap-2 bg-[var(--primary)] text-white font-bold py-3 rounded-xl hover:opacity-90 transition-opacity text-sm"
+            className="mt-3 w-full flex items-center justify-center gap-2 border border-[var(--border)] text-[var(--text)] font-bold py-2.5 rounded-xl hover:bg-[var(--surface)] transition-colors text-sm"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <polygon points="3 11 22 2 13 21 11 13 3 11"/>
             </svg>
-            Get Directions
+            Open in Maps
           </a>
         </div>
       </div>

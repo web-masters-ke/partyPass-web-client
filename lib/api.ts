@@ -112,6 +112,12 @@ export const organizerApi = {
   eventAttendees: (id: string, params?: Record<string, unknown>) => api.get(`/events/${id}/attendees`, { params }),
   publishEvent: (id: string) => api.post(`/events/${id}/publish`),
   cancelEvent: (id: string) => api.post(`/events/${id}/cancel`),
+  // Club owner venue management
+  myVenues: () => api.get("/organizer/venues"),
+  myVenue: (id: string) => api.get(`/organizer/venues/${id}`),
+  venueNights: (id: string) => api.get(`/organizer/venues/${id}/nights`),
+  venueBookings: (id: string, params?: Record<string, unknown>) => api.get(`/organizer/venues/${id}/bookings`, { params }),
+  venueMembers: (id: string, params?: Record<string, unknown>) => api.get(`/organizer/venues/${id}/members`, { params }),
 };
 
 export const membershipApi = {

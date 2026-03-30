@@ -52,6 +52,10 @@ export interface Ticket {
   id: string;
   qrCode: string;
   status: string;
+  holderName?: string;
+  holderEmail?: string;
+  holderPhone?: string;
+  user?: { id: string; firstName: string; lastName: string; email?: string; avatarUrl?: string };
   event: Pick<Event, "id" | "title" | "startDateTime" | "coverImageUrl" | "category">;
   tier: Pick<TicketTier, "name" | "tierType" | "color" | "perks">;
   order: { total: number; currency: string; paidAt?: string; status: string };

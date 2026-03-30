@@ -1,8 +1,8 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
-import { eventsApi, organizerApi, teamApi, unwrap } from "@/lib/api";
+import { eventsApi, organizerApi, teamApi, mediaApi, unwrap } from "@/lib/api";
 import { getUser } from "@/lib/auth";
 import { fmtCurrency, fmtDate, fmtDateTime, fmtRelative } from "@/lib/utils";
 import type { User, Event } from "@/types";
@@ -517,6 +517,25 @@ export default function OrganizerEventDetailPage() {
   const [publishing, setPublishing] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [activeTab, setActiveTab] = useState<EventTab>("Overview");
+  const [uploadingCover, setUploadingCover] = useState(false);
+  const coverInputRef = useRef<HTMLInputElement>(null);
+
+  async function handleCoverUpload(file: File) {
+    if (!file.type.startsWith("image/")) { toast.error("Only image files allowed"); return; }
+    if (file.size > 10 * 1024 * 1024) { toast.error("Image must be under 10 MB"); return; }
+    setUploadingCover(true);
+    try {
+      const res = await mediaApi.upload(file, "events");
+      const { url } = unwrap<{ url: string }>(res);
+      await organizerApi.updateEvent(id, { coverImageUrl: url });
+      setEvent((prev) => prev ? { ...prev, coverImageUrl: url } : prev);
+      toast.success("Cover image updated!");
+    } catch {
+      toast.error("Upload failed — try again");
+    } finally {
+      setUploadingCover(false);
+    }
+  }
 
   useEffect(() => {
     const user = getUser<User>();
@@ -593,14 +612,34 @@ export default function OrganizerEventDetailPage() {
       </div>
 
       {/* Event header */}
+      <input
+        ref={coverInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        className="hidden"
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleCoverUpload(f); e.target.value = ""; }}
+      />
       <div className="card overflow-hidden mb-6">
-        <div className="relative h-56 bg-[var(--surface)]">
+        <div className="relative h-56 bg-[var(--surface)] group">
           {event.coverImageUrl ? (
             <img src={event.coverImageUrl} alt={event.title} className="w-full h-full object-cover" />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-5xl bg-gradient-to-br from-[var(--primary)] to-rose-700">🎉</div>
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+          {/* Cover upload overlay */}
+          <button
+            type="button"
+            onClick={() => coverInputRef.current?.click()}
+            disabled={uploadingCover}
+            className="absolute top-3 left-3 flex items-center gap-1.5 bg-black/50 hover:bg-black/70 text-white text-xs font-semibold px-3 py-1.5 rounded-full transition-colors opacity-0 group-hover:opacity-100 disabled:opacity-60"
+          >
+            {uploadingCover ? (
+              <><div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin" /> Uploading…</>
+            ) : (
+              <>📷 {event.coverImageUrl ? "Change cover" : "Add cover"}</>
+            )}
+          </button>
           <div className="absolute bottom-4 left-5 right-5">
             <div className="flex items-start justify-between gap-3">
               <div>

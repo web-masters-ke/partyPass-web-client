@@ -183,13 +183,18 @@ export default function OrganizerDashboard() {
       </div>
 
       {/* Quick actions */}
-      <div className="flex gap-3 mb-8">
+      <div className="flex gap-3 mb-8 flex-wrap">
         <Link href="/organizer/events" className="card px-4 py-3 text-sm font-semibold flex items-center gap-2 hover:shadow-md transition-shadow">
           <span className="text-lg">📅</span> All Events
         </Link>
         <Link href="/organizer/wallet" className="card px-4 py-3 text-sm font-semibold flex items-center gap-2 hover:shadow-md transition-shadow">
           <span className="text-lg">💰</span> Wallet · {fmtCurrency(wallet?.availableToWithdraw ?? 0)}
         </Link>
+        {(getUser<User>()?.role === "CLUB_OWNER" || getUser<User>()?.role === "ADMIN" || getUser<User>()?.role === "SUPER_ADMIN") && (
+          <Link href="/organizer/venues" className="card px-4 py-3 text-sm font-semibold flex items-center gap-2 hover:shadow-md transition-shadow border-[var(--primary)] border-2">
+            <span className="text-lg">🏛️</span> My Clubs
+          </Link>
+        )}
       </div>
 
       {/* Recent events */}
