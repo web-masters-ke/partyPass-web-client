@@ -162,7 +162,15 @@ export default function ClubVenueDetailPage() {
             )}
           </div>
           <div className="flex-1 min-w-0">
-            <h1 className="text-2xl font-black text-[var(--text)]">{venue.name}</h1>
+            <div className="flex items-start justify-between gap-3">
+              <h1 className="text-2xl font-black text-[var(--text)]">{venue.name}</h1>
+              <button
+                onClick={() => setTab("edit")}
+                className="flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg border border-[var(--border)] text-[var(--muted)] hover:text-[var(--primary)] hover:border-[var(--primary)] transition-colors"
+              >
+                ✏️ Edit
+              </button>
+            </div>
             <p className="text-sm text-[var(--muted)] mt-0.5">📍 {venue.address}, {venue.city}</p>
             {venue.description && (
               <p className="text-sm text-[var(--muted)] mt-2">{venue.description}</p>
