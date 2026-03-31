@@ -1,8 +1,10 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { ImagePlus, X } from "lucide-react";
 import { organizerApi, unwrap } from "@/lib/api";
+import api from "@/lib/api";
 import { getUser } from "@/lib/auth";
 import type { User } from "@/types";
 
@@ -11,9 +13,11 @@ interface Venue {
   name: string;
   description?: string;
   logoUrl?: string;
+  photos?: string[];
   city: string;
   address: string;
   capacity?: number;
+  amenities?: string[];
   _count: { clubNights: number; clubMemberships: number };
 }
 
@@ -64,7 +68,7 @@ const MEMBER_COLORS: Record<string, string> = {
   CANCELLED: "bg-red-100 text-red-600",
 };
 
-type Tab = "nights" | "bookings" | "members";
+type Tab = "nights" | "bookings" | "members" | "edit";
 
 export default function ClubVenueDetailPage() {
   const params = useParams();
@@ -78,6 +82,14 @@ export default function ClubVenueDetailPage() {
   const [tab, setTab] = useState<Tab>("nights");
   const [loading, setLoading] = useState(true);
 
+  // Edit state
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [editForm, setEditForm] = useState({ name: "", description: "", address: "", city: "", capacity: "", amenities: "" });
+  const [newPhotos, setNewPhotos] = useState<File[]>([]);
+  const [newPreviews, setNewPreviews] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [saveMsg, setSaveMsg] = useState("");
+
   useEffect(() => {
     const user = getUser<User>();
     if (!user) { router.replace("/login"); return; }
@@ -87,7 +99,18 @@ export default function ClubVenueDetailPage() {
     }
 
     Promise.all([
-      organizerApi.myVenue(venueId).then((r) => setVenue(unwrap<Venue>(r))),
+      organizerApi.myVenue(venueId).then((r) => {
+        const v = unwrap<Venue>(r);
+        setVenue(v);
+        setEditForm({
+          name: v.name || "",
+          description: v.description || "",
+          address: v.address || "",
+          city: v.city || "",
+          capacity: v.capacity?.toString() || "",
+          amenities: (v.amenities || []).join(", "),
+        });
+      }),
       organizerApi.venueNights(venueId).then((r) => {
         const d = unwrap<ClubNight[] | { items?: ClubNight[] }>(r);
         setNights(Array.isArray(d) ? d : d.items ?? []);
@@ -166,7 +189,7 @@ export default function ClubVenueDetailPage() {
 
       {/* Tab bar */}
       <div className="flex gap-1 mb-5 border-b border-[var(--border)]">
-        {(["nights", "bookings", "members"] as Tab[]).map((t) => (
+        {(["nights", "bookings", "members", "edit"] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -278,6 +301,116 @@ export default function ClubVenueDetailPage() {
             );
           })}
         </div>
+      )}
+      {tab === "edit" && (
+        <form
+          className="space-y-5 max-w-lg"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            setSaving(true);
+            setSaveMsg("");
+            try {
+              await api.patch(`/venues/${venueId}`, {
+                name: editForm.name.trim(),
+                description: editForm.description.trim() || undefined,
+                address: editForm.address.trim(),
+                city: editForm.city.trim(),
+                capacity: editForm.capacity ? parseInt(editForm.capacity) : undefined,
+                amenities: editForm.amenities.split(",").map((s) => s.trim()).filter(Boolean),
+              });
+              if (newPhotos.length > 0) {
+                await Promise.all(
+                  newPhotos.map((file) => {
+                    const fd = new FormData();
+                    fd.append("photo", file);
+                    return api.post(`/venues/${venueId}/upload-photo`, fd, {
+                      headers: { "Content-Type": "multipart/form-data" },
+                    });
+                  })
+                );
+                setNewPhotos([]);
+                setNewPreviews([]);
+              }
+              setSaveMsg("Saved!");
+              const r = await organizerApi.myVenue(venueId);
+              setVenue(unwrap<Venue>(r));
+            } catch {
+              setSaveMsg("Failed to save.");
+            } finally {
+              setSaving(false);
+            }
+          }}
+        >
+          {/* Photos */}
+          <div className="card p-5 space-y-4">
+            <h2 className="text-xs font-bold text-[var(--muted)] uppercase tracking-wider">Current Photos</h2>
+            {venue.photos && venue.photos.length > 0 ? (
+              <div className="flex flex-wrap gap-3">
+                {venue.photos.map((src, i) => (
+                  <div key={i} className="relative h-24 w-24 rounded-xl overflow-hidden border border-[var(--border)]">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={src} alt="" className="h-full w-full object-cover" />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-[var(--muted)]">No photos yet</p>
+            )}
+            <h2 className="text-xs font-bold text-[var(--muted)] uppercase tracking-wider pt-2">Add More Photos</h2>
+            <div className="flex flex-wrap gap-3">
+              {newPreviews.map((src, i) => (
+                <div key={i} className="relative h-24 w-24 rounded-xl overflow-hidden border border-[var(--border)]">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={src} alt="" className="h-full w-full object-cover" />
+                  <button type="button" onClick={() => {
+                    setNewPhotos((p) => p.filter((_, idx) => idx !== i));
+                    setNewPreviews((p) => p.filter((_, idx) => idx !== i));
+                  }} className="absolute top-1 right-1 bg-black/60 rounded-full p-0.5 text-white">
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+              <button type="button" onClick={() => fileInputRef.current?.click()}
+                className="h-24 w-24 rounded-xl border-2 border-dashed border-[var(--border)] flex flex-col items-center justify-center gap-1 text-[var(--muted)] hover:border-[var(--primary)] hover:text-[var(--primary)] transition-colors">
+                <ImagePlus className="h-5 w-5" />
+                <span className="text-xs">Add</span>
+              </button>
+            </div>
+            <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden"
+              onChange={(e) => {
+                const files = Array.from(e.target.files || []);
+                const merged = [...newPhotos, ...files].slice(0, 5);
+                setNewPhotos(merged);
+                setNewPreviews(merged.map((f) => URL.createObjectURL(f)));
+              }}
+            />
+          </div>
+
+          {/* Fields */}
+          <div className="card p-5 space-y-4">
+            <h2 className="text-xs font-bold text-[var(--muted)] uppercase tracking-wider">Venue Info</h2>
+            {(["name", "description", "address", "city", "capacity", "amenities"] as const).map((field) => (
+              <div key={field}>
+                <label className="block text-sm font-semibold text-[var(--text)] mb-1.5 capitalize">{field === "amenities" ? "Amenities (comma separated)" : field}</label>
+                {field === "description" ? (
+                  <textarea rows={3} value={editForm[field]} onChange={(e) => setEditForm((p) => ({ ...p, [field]: e.target.value }))}
+                    className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-sm text-[var(--text)] placeholder-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] resize-none" />
+                ) : (
+                  <input type={field === "capacity" ? "number" : "text"} value={editForm[field]}
+                    onChange={(e) => setEditForm((p) => ({ ...p, [field]: e.target.value }))}
+                    className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-sm text-[var(--text)] placeholder-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]" />
+                )}
+              </div>
+            ))}
+          </div>
+
+          {saveMsg && <p className={`text-sm ${saveMsg === "Saved!" ? "text-green-500" : "text-red-500"}`}>{saveMsg}</p>}
+
+          <button type="submit" disabled={saving}
+            className="btn-primary w-full disabled:opacity-60 disabled:cursor-not-allowed">
+            {saving ? "Saving..." : "Save Changes"}
+          </button>
+        </form>
       )}
     </div>
   );
