@@ -1,12 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { ImagePlus, X } from "lucide-react";
 import api from "@/lib/api";
 
 export default function NewVenuePage() {
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [form, setForm] = useState({
     name: "",
     description: "",
@@ -15,6 +18,8 @@ export default function NewVenuePage() {
     capacity: "",
     amenities: "",
   });
+  const [photos, setPhotos] = useState<File[]>([]);
+  const [previews, setPreviews] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -22,6 +27,22 @@ export default function NewVenuePage() {
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    const newPhotos = [...photos, ...files].slice(0, 5);
+    setPhotos(newPhotos);
+    const newPreviews = newPhotos.map((f) => URL.createObjectURL(f));
+    setPreviews(newPreviews);
+  };
+
+  const removePhoto = (index: number) => {
+    const newPhotos = photos.filter((_, i) => i !== index);
+    const newPreviews = previews.filter((_, i) => i !== index);
+    setPhotos(newPhotos);
+    setPreviews(newPreviews);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -37,7 +58,8 @@ export default function NewVenuePage() {
         .split(",")
         .map((s) => s.trim())
         .filter(Boolean);
-      await api.post("/venues", {
+
+      const res = await api.post("/venues", {
         name: form.name.trim(),
         description: form.description.trim() || undefined,
         address: form.address.trim(),
@@ -46,6 +68,21 @@ export default function NewVenuePage() {
         capacity: form.capacity ? parseInt(form.capacity) : undefined,
         amenities,
       });
+
+      const venueId = res.data?.data?.id || res.data?.id;
+
+      if (venueId && photos.length > 0) {
+        await Promise.all(
+          photos.map((file) => {
+            const fd = new FormData();
+            fd.append("photo", file);
+            return api.post(`/venues/${venueId}/upload-photo`, fd, {
+              headers: { "Content-Type": "multipart/form-data" },
+            });
+          })
+        );
+      }
+
       router.push("/organizer/venues");
     } catch (err: unknown) {
       const msg =
@@ -75,6 +112,48 @@ export default function NewVenuePage() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5">
+        {/* Photos */}
+        <div className="card p-5 space-y-4">
+          <h2 className="text-xs font-bold text-[var(--muted)] uppercase tracking-wider">
+            Photos
+          </h2>
+          <div className="flex flex-wrap gap-3">
+            {previews.map((src, i) => (
+              <div key={i} className="relative h-24 w-24 rounded-xl overflow-hidden border border-[var(--border)]">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={src} alt="" className="h-full w-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => removePhoto(i)}
+                  className="absolute top-1 right-1 bg-black/60 rounded-full p-0.5 text-white hover:bg-black/80"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ))}
+            {photos.length < 5 && (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="h-24 w-24 rounded-xl border-2 border-dashed border-[var(--border)] flex flex-col items-center justify-center gap-1 text-[var(--muted)] hover:border-[var(--primary)] hover:text-[var(--primary)] transition-colors"
+              >
+                <ImagePlus className="h-5 w-5" />
+                <span className="text-xs">Add photo</span>
+              </button>
+            )}
+          </div>
+          <p className="text-xs text-[var(--muted)]">Up to 5 photos. First photo is used as cover.</p>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={handleFileChange}
+          />
+        </div>
+
+        {/* Venue Info */}
         <div className="card p-5 space-y-4">
           <h2 className="text-xs font-bold text-[var(--muted)] uppercase tracking-wider">
             Venue Info
@@ -97,6 +176,7 @@ export default function NewVenuePage() {
           />
         </div>
 
+        {/* Location */}
         <div className="card p-5 space-y-4">
           <h2 className="text-xs font-bold text-[var(--muted)] uppercase tracking-wider">
             Location
@@ -119,6 +199,7 @@ export default function NewVenuePage() {
           />
         </div>
 
+        {/* Details */}
         <div className="card p-5 space-y-4">
           <h2 className="text-xs font-bold text-[var(--muted)] uppercase tracking-wider">
             Details
@@ -167,9 +248,7 @@ function Field({
   label: string;
   name: string;
   value: string;
-  onChange: (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => void;
+  onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   placeholder?: string;
   required?: boolean;
   textarea?: boolean;
